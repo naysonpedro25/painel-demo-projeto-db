@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loja Olist: painel da demonstração</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topo">
+      <div class="marca">
+        <strong>Loja Olist</strong>
+        <span>Demonstração de CRUD em tempo real no Cloud Firestore</span>
+      </div>
+      <div id="conexao" class="conexao" data-estado="conectando">Conectando</div>
+    </header>
+
+    <div id="aviso" class="aviso" hidden></div>
+
+    <main class="colunas">
+      <!-- Coluna 1: lista de pedidos -->
+      <section class="coluna" id="coluna-lista" aria-labelledby="titulo-lista">
+        <h2 id="titulo-lista">Pedidos</h2>
+
+        <form id="filtros" class="filtros">
+          <label>Estado
+            <select name="estado" id="filtro-estado"></select>
+          </label>
+          <label>Status
+            <select name="status" id="filtro-status"></select>
+          </label>
+        </form>
+
+        <div class="resumo">
+          <button type="button" id="botao-resumo" class="secundario">Calcular resumo</button>
+          <p id="resumo-texto">Quantidade e faturamento dos filtros atuais.</p>
+        </div>
+
+        <details class="novo" id="novo">
+          <summary>Criar pedido</summary>
+          <form id="form-novo" class="formulario">
+            <label>Nome do cliente
+              <input name="nome" maxlength="60" placeholder="Turma de BD, UFAL" />
+            </label>
+            <div class="linha">
+              <label>Cidade
+                <input name="cidade" maxlength="60" value="maceio" required />
+              </label>
+              <label>Estado
+                <select name="estado" id="novo-estado" required></select>
+              </label>
+            </div>
+            <label>Categoria do produto
+              <select name="categoria" id="novo-categoria"></select>
+            </label>
+            <div class="linha">
+              <label>Preço (R$)
+                <input name="preco" type="number" min="0.01" step="0.01" value="89.90" required />
+              </label>
+              <label>Frete (R$)
+                <input name="frete" type="number" min="0" step="0.01" value="15.00" required />
+              </label>
+            </div>
+            <div class="linha">
+              <label>Pagamento
+                <select name="pagamento">
+                  <option value="credit_card">Cartão de crédito</option>
+                  <option value="boleto">Boleto</option>
+                  <option value="voucher">Voucher</option>
+                  <option value="debit_card">Cartão de débito</option>
+                </select>
+              </label>
+              <label>Parcelas
+                <input name="parcelas" type="number" min="1" max="12" step="1" value="1" required />
+              </label>
+            </div>
+            <button type="submit">Criar pedido</button>
+          </form>
+        </details>
+
+        <p id="lista-nota" class="nota"></p>
+        <ul id="lista" class="lista" aria-live="polite"></ul>
+      </section>
+
+      <!-- Coluna 2: lojista -->
+      <section class="coluna" id="coluna-lojista" aria-labelledby="titulo-lojista">
+        <h2 id="titulo-lojista">Lojista <small>altera o pedido</small></h2>
+        <p id="lojista-vazio" class="vazio">Selecione um pedido na lista para gerenciar.</p>
+
+        <div id="lojista" hidden>
+          <div id="lojista-dados"></div>
+
+          <div class="acoes">
+            <button type="button" id="botao-avancar">Avançar etapa</button>
+            <button type="button" id="botao-cancelar" class="secundario">Cancelar pedido</button>
+          </div>
+
+          <form id="form-item" class="formulario caixa">
+            <h3>Adicionar item</h3>
+            <label>Categoria
+              <select name="categoria" id="item-categoria"></select>
+            </label>
+            <div class="linha">
+              <label>Preço (R$)
+                <input name="preco" type="number" min="0.01" step="0.01" value="49.90" required />
+              </label>
+              <label>Frete (R$)
+                <input name="frete" type="number" min="0" step="0.01" value="9.90" required />
+              </label>
+            </div>
+            <button type="submit" class="secundario">Adicionar item</button>
+          </form>
+
+          <div class="perigo">
+            <button type="button" id="botao-apagar" class="perigoso">Apagar pedido</button>
+            <button type="button" id="botao-link" class="texto">Copiar link do rastreio</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Coluna 3: cliente -->
+      <section class="coluna" id="coluna-cliente" aria-labelledby="titulo-cliente">
+        <h2 id="titulo-cliente">Cliente <small>acompanha o pedido</small></h2>
+        <div id="rastreio" aria-live="polite">
+          <p class="vazio">O rastreio aparece aqui quando um pedido é selecionado.</p>
+        </div>
+
+        <form id="form-avaliacao" class="formulario caixa" hidden>
+          <h3>Avaliar o pedido</h3>
+          <label>Nota
+            <select name="nota">
+              <option value="5">5, excelente</option>
+              <option value="4">4, bom</option>
+              <option value="3">3, regular</option>
+              <option value="2">2, ruim</option>
+              <option value="1">1, péssimo</option>
+            </select>
+          </label>
+          <label>Comentário
+            <input name="comentario" maxlength="200" placeholder="Opcional" />
+          </label>
+          <button type="submit" class="secundario">Enviar avaliação</button>
+        </form>
+      </section>
+    </main>
+
+    <section class="registro" aria-labelledby="titulo-registro">
+      <div class="registro-topo">
+        <h2 id="titulo-registro">Operações enviadas ao Firestore</h2>
+        <button type="button" id="botao-limpar-demo" class="texto">Apagar pedidos criados na demo</button>
+      </div>
+      <ol id="registro" class="registro-lista"></ol>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
