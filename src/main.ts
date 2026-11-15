@@ -1,25 +1,12 @@
 // Painel da demonstração: liga a tela às funções de crud.ts.
+// As operações no banco estão em crud.ts; aqui fica só a interface.
 // Três colunas: lista de pedidos, visão do lojista e visão do cliente.
 
 import type { FirestoreError, Timestamp, Unsubscribe } from "firebase/firestore";
 import { configPreenchida } from "./firebase";
-import {
-  ErroDeRegra,
-  SEQUENCIA,
-  TAMANHO_DA_LISTA,
-  adicionarItem,
-  apagarPedido,
-  apagarPedidosDaDemo,
-  avaliarPedido,
-  avancarStatus,
-  cancelarPedido,
-  criarPedido,
-  linkDoIndice,
-  observarPedido,
-  observarPedidos,
-  proximoStatus,
-  resumirPedidos,
-} from "./crud";
+import { ErroDeRegra, SEQUENCIA, linkDoIndice, proximoStatus } from "./apoio";
+import { adicionarItem, apagarPedido, atualizarStatus, criarPedido, observarPedido } from "./crud";
+import { TAMANHO_DA_LISTA, apagarPedidosDaDemo, observarPedidos } from "./lista";
 import type { Filtros, Pedido, Status } from "./tipos";
 
 // ------------------------------------------------------------ constantes
@@ -112,6 +99,12 @@ function explicarErro(erro: unknown): string {
     "invalid-argument": "O Firestore recusou os dados enviados.",
   };
   return mensagens[codigo] ?? (erro instanceof Error ? erro.message : String(erro));
+}
+
+/** Confere os valores digitados antes de mandar ao banco. */
+function conferirValores(preco: number, frete: number) {
+  if (!Number.isFinite(preco) || preco <= 0) throw new ErroDeRegra("Informe um preço maior que zero.");
+  if (!Number.isFinite(frete) || frete < 0) throw new ErroDeRegra("O frete não pode ser negativo.");
 }
 
 // ----------------------------------------------------------------- estado
@@ -311,7 +304,6 @@ function desenharLojista(p: Pedido | null, haviaSelecao: boolean) {
   const avancar = $<HTMLButtonElement>("#botao-avancar");
   avancar.disabled = !proximo;
   avancar.textContent = proximo ? `Marcar como: ${NOME_DO_STATUS[proximo]}` : "Sem próxima etapa";
-  $<HTMLButtonElement>("#botao-cancelar").disabled = p.status === "delivered" || p.status === "canceled";
   $<HTMLButtonElement>("#botao-apagar").textContent = confirmandoExclusao
     ? "Clique de novo para apagar"
     : "Apagar pedido";
@@ -319,9 +311,7 @@ function desenharLojista(p: Pedido | null, haviaSelecao: boolean) {
 
 function desenharRastreio(p: Pedido | null, haviaSelecao: boolean) {
   const area = $("#rastreio");
-  const formulario = $<HTMLFormElement>("#form-avaliacao");
   if (!p) {
-    formulario.hidden = true;
     area.innerHTML = `<p class="vazio">${
       haviaSelecao ? "Este pedido não existe mais." : "Selecione um pedido para ver a página que o cliente acompanha."
     }</p>`;
@@ -357,7 +347,7 @@ function desenharRastreio(p: Pedido | null, haviaSelecao: boolean) {
 
   const avaliacao = p.avaliacao
     ? `<div class="avaliacao">
-         <p class="rotulo">Sua avaliação</p>
+         <p class="rotulo">Avaliação do cliente</p>
          <p class="estrelas" aria-label="Nota ${p.avaliacao.nota} de 5">${"★".repeat(p.avaliacao.nota)}${"☆".repeat(Math.max(0, 5 - p.avaliacao.nota))}</p>
          ${p.avaliacao.comentario ? `<p>${esc(p.avaliacao.comentario)}</p>` : ""}
        </div>`
@@ -378,9 +368,6 @@ function desenharRastreio(p: Pedido | null, haviaSelecao: boolean) {
     </dl>
     ${pagamentos ? `<p class="pagamentos">${pagamentos}</p>` : ""}
     ${avaliacao}`;
-
-  formulario.hidden = p.status !== "delivered";
-  formulario.querySelector("h3")!.textContent = p.avaliacao ? "Mudar a avaliação" : "Avaliar o pedido";
 }
 
 // ---------------------------------------------------------------- eventos
@@ -408,7 +395,6 @@ function ligarEventos() {
   $("#filtros").addEventListener("change", () => {
     filtros.estado = $<HTMLSelectElement>("#filtro-estado").value;
     filtros.status = $<HTMLSelectElement>("#filtro-status").value;
-    $("#resumo-texto").textContent = "Quantidade e faturamento dos filtros atuais.";
     mostrarAviso(null);
     escutarLista();
   });
@@ -418,30 +404,24 @@ function ligarEventos() {
     if (botao?.dataset.id) selecionar(botao.dataset.id);
   });
 
-  $("#botao-resumo").addEventListener("click", async () => {
-    const r = await executar("getAggregateFromServer", "count() e sum(totais.geral)", () => resumirPedidos(filtros));
-    if (r) {
-      $("#resumo-texto").textContent =
-        `${r.quantidade.toLocaleString("pt-BR")} pedidos, ${moeda.format(r.faturamento)} em vendas. ` +
-        `Calculado às ${hora.format(new Date())}; não atualiza sozinho.`;
-    }
-  });
-
   $<HTMLFormElement>("#form-novo").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const dados = new FormData(evento.currentTarget as HTMLFormElement);
-    const id = await executar("addDoc", "pedidos (novo documento)", () =>
-      criarPedido({
-        nome: String(dados.get("nome") ?? ""),
-        cidade: String(dados.get("cidade") ?? ""),
+    const id = await executar("addDoc", "pedidos (novo documento)", () => {
+      const preco = Number(dados.get("preco"));
+      const frete = Number(dados.get("frete"));
+      conferirValores(preco, frete);
+      return criarPedido({
+        nome: String(dados.get("nome") ?? "").trim() || "Cliente da demo",
+        cidade: String(dados.get("cidade") ?? "").trim().toLowerCase(),
         estado: String(dados.get("estado") ?? ""),
         categoria: String(dados.get("categoria") ?? ""),
-        preco: Number(dados.get("preco")),
-        frete: Number(dados.get("frete")),
+        preco,
+        frete,
         pagamento: String(dados.get("pagamento") ?? "credit_card"),
         parcelas: Number(dados.get("parcelas")) || 1,
-      })
-    );
+      });
+    });
     if (id) {
       $<HTMLDetailsElement>("#novo").open = false;
       selecionar(id);
@@ -449,29 +429,34 @@ function ligarEventos() {
   });
 
   $("#botao-avancar").addEventListener("click", () => {
-    if (!selecionado) return;
+    if (!selecionado || !pedidoAtual) return;
     const id = selecionado;
-    void executar("runTransaction", `pedidos/${idCurto(id)}: status`, () => avancarStatus(id));
-  });
-
-  $("#botao-cancelar").addEventListener("click", () => {
-    if (!selecionado) return;
-    const id = selecionado;
-    void executar("runTransaction", `pedidos/${idCurto(id)}: status = canceled`, () => cancelarPedido(id));
+    const proximo = proximoStatus(pedidoAtual.status);
+    if (!proximo) return;
+    void executar("updateDoc", `pedidos/${idCurto(id)}: status = ${proximo}`, () => atualizarStatus(id, proximo));
   });
 
   $<HTMLFormElement>("#form-item").addEventListener("submit", (evento) => {
     evento.preventDefault();
-    if (!selecionado) return;
+    if (!selecionado || !pedidoAtual) return;
     const id = selecionado;
+    const pedido = pedidoAtual;
     const dados = new FormData(evento.currentTarget as HTMLFormElement);
-    void executar("runTransaction", `pedidos/${idCurto(id)}: itens e totais`, () =>
-      adicionarItem(id, {
+    void executar("runTransaction", `pedidos/${idCurto(id)}: itens e totais`, () => {
+      // Regra da loja: depois do envio o pedido não aceita mais itens.
+      if (["shipped", "delivered", "canceled", "unavailable"].includes(pedido.status)) {
+        throw new ErroDeRegra("Só é possível adicionar itens antes do envio do pedido.");
+      }
+      const preco = Number(dados.get("preco"));
+      const frete = Number(dados.get("frete"));
+      conferirValores(preco, frete);
+      return adicionarItem(id, {
+        seq: pedido.itens.length + 1,
         categoria: String(dados.get("categoria") ?? ""),
-        preco: Number(dados.get("preco")),
-        frete: Number(dados.get("frete")),
-      })
-    );
+        preco,
+        frete,
+      });
+    });
   });
 
   $("#botao-apagar").addEventListener("click", async () => {
@@ -498,16 +483,6 @@ function ligarEventos() {
       $("#botao-link").textContent = url.toString();
     }
     setTimeout(() => ($("#botao-link").textContent = "Copiar link do rastreio"), 4000);
-  });
-
-  $<HTMLFormElement>("#form-avaliacao").addEventListener("submit", (evento) => {
-    evento.preventDefault();
-    if (!selecionado) return;
-    const id = selecionado;
-    const dados = new FormData(evento.currentTarget as HTMLFormElement);
-    void executar("updateDoc", `pedidos/${idCurto(id)}: avaliacao`, () =>
-      avaliarPedido(id, Number(dados.get("nota")), String(dados.get("comentario") ?? ""))
-    );
   });
 
   $("#botao-limpar-demo").addEventListener("click", async () => {

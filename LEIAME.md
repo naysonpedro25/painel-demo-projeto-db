@@ -25,24 +25,26 @@ Enquanto a configuração não for preenchida, a página mostra uma tela explica
 
 | Arquivo | O que tem |
 |---|---|
-| `src/crud.ts` | As operações de CRUD. Não depende da tela; é o arquivo para mostrar na apresentação. |
-| `src/main.ts` | A tela: desenha as colunas e chama as funções do `crud.ts`. |
+| `src/crud.ts` | As operações de CRUD, uma função curta para cada. É o arquivo para mostrar em sala. |
+| `src/apoio.ts` | Cálculo dos totais, conversão do documento e regras de etapa. Não fala com o banco. |
+| `src/lista.ts` | Lista em tempo real com o tratamento de índice faltando, e a limpeza dos pedidos de teste. |
+| `src/main.ts` | A tela: desenha as colunas e chama as funções acima. |
 | `src/tipos.ts` | Os tipos TypeScript do documento `pedidos`. |
 | `src/firebase.ts` | Conexão com o Firestore. |
 | `src/firebase-config.ts` | Configuração do projeto (você preenche). |
 | `firestore.indexes.json` | Os três índices compostos que a lista usa. |
 
-## Onde está cada letra do CRUD
+## O que tem no crud.ts
 
-| Letra | Função em `crud.ts` | Chamada do Firestore | Na tela |
+| Letra | Função | Chamada do Firestore | Na tela |
 |---|---|---|---|
 | Create | `criarPedido` | `addDoc` | Formulário "Criar pedido" |
-| Read | `observarPedidos`, `observarPedido` | `onSnapshot` | Lista e rastreio, em tempo real |
-| Read | `lerPedido`, `listarPedidos` | `getDoc`, `getDocs` | Leitura única (usada em `avaliarPedido`) |
-| Read | `resumirPedidos` | `getAggregateFromServer` | Botão "Calcular resumo" |
-| Update | `avancarStatus`, `cancelarPedido`, `adicionarItem` | `runTransaction` | Botões do lojista |
-| Update | `avaliarPedido` | `updateDoc` | Formulário do cliente |
-| Delete | `apagarPedido`, `apagarPedidosDaDemo` | `deleteDoc` | "Apagar pedido" e a limpeza no rodapé |
+| Read | `lerPedido` | `getDoc` | (para mostrar no código) |
+| Read | `listarPedidos` | `query` + `where` + `orderBy` + `getDocs` | (para mostrar no código) |
+| Read | `observarPedido` | `onSnapshot` | Colunas do lojista e do cliente, em tempo real |
+| Update | `atualizarStatus` | `updateDoc` | Botão de avançar etapa |
+| Update | `adicionarItem` | `runTransaction` | Formulário "Adicionar item" |
+| Delete | `apagarPedido` | `deleteDoc` | Botão "Apagar pedido" |
 
 ## Antes da apresentação
 
@@ -62,14 +64,13 @@ Faça isto com pelo menos um dia de folga, porque o índice leva alguns minutos 
 ## Roteiro sugerido
 
 1. Read: clicar em um pedido do dataset. O rastreio do cliente aparece ao lado.
-2. Read com filtro: escolher SP e Entregue. Clicar em "Calcular resumo" (agregação).
+2. Read com filtro: escolher SP e Entregue na lista.
 3. Create: abrir "Criar pedido", preencher o nome e criar. O pedido aparece na lista
    com a marca "criado na demo" e já fica selecionado.
-4. Update: "Adicionar item" (transação que recalcula o total) e depois avançar as etapas.
-   A linha do tempo do cliente muda a cada clique.
-5. Tentar adicionar um item depois de Enviado: a operação é recusada, e o motivo aparece
+4. Update com transação: "Adicionar item". O total é recalculado.
+5. Update simples: avançar as etapas. A linha do tempo do cliente muda a cada clique.
+6. Tentar adicionar um item depois de Enviado: a operação é recusada, e o motivo aparece
    no aviso e no registro.
-6. Update pelo cliente: com o pedido Entregue, enviar uma avaliação.
 7. Delete: "Apagar pedido" (dois cliques). O rastreio mostra que o pedido não existe mais.
 
 Para mostrar o tempo real com duas pessoas, use "Copiar link do rastreio" e abra o link em
@@ -87,7 +88,7 @@ Também dá para alterar o documento direto no Firebase Console e ver a página 
 | Cota gratuita esgotada | Aviso "A cota gratuita de hoje acabou" | Esperar a renovação diária |
 | Pedido apagado por outra pessoa | Colunas mostram "Este pedido foi apagado" | Selecionar outro |
 | Duas alterações ao mesmo tempo | A transação é refeita sozinha pelo SDK | Nada |
-| Valor inválido (preço zero, nota fora de 1 a 5) | Operação recusada antes de ir ao banco | Corrigir o valor |
+| Valor inválido (preço zero, frete negativo) | Operação recusada antes de ir ao banco | Corrigir o valor |
 
 Sobre a cota: o plano gratuito permite 50 mil leituras e 20 mil escritas por dia. A lista
 lê no máximo 15 documentos por consulta, então cada troca de filtro custa até 15 leituras.
